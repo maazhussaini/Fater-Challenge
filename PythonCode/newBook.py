@@ -65,6 +65,7 @@ def deal_with_garbage_data(registry_game):
 
     registry_game = registry_game[~registry_game['DtaPresuntoParto'].isnull()]
     registry_game['ETA_MM_BambinoREG'] = registry_game['ETA_MM_BambinoREG'].abs()
+    registry_game['ETA_MM_BambinoTODAY'] = registry_game['ETA_MM_BambinoTODAY'].abs()
     return registry_game
 
 
@@ -80,27 +81,22 @@ def detect_outliers(registry_game):
 
 def tier_based_product(product_loaded, product_ean_conversion, missions_players):
     # Merge relevant columns from different tables using the id_player as key
-    product_mission_merge = pd.merge(missions_players, product_loaded,
+    product_mission_merge = pd.merge(missions_players[['id_player', 'points']], product_loaded[['id_player', 'points', 'EAN']],
                                      how='inner', on='id_player')
 
     product_mission_merge = product_mission_merge.rename(columns={
         'points_x': 'mission_points',
-        'created_at_x': 'mission_created_at',
         'points_y': 'product_points',
-        'created_at_y': 'product_created_at'
     })
 
     product_mission_merge['EAN'] = pd.to_numeric(
         product_mission_merge['EAN'], errors='coerce')
 
     product_mission_merge = pd.merge(
-        product_mission_merge, product_ean_conversion, how='inner', on='EAN')
+        product_mission_merge, product_ean_conversion[['EAN', 'TIER']], how='inner', on='EAN')
 
     product_mission_merge['total_points_gained'] = product_mission_merge['mission_points'] + \
         product_mission_merge['product_points']
-
-    print(product_mission_merge.columns)
-    print(product_mission_merge.info())
 
     product_mission_result = product_mission_merge.groupby('TIER')[
         'id_player'].count()
@@ -110,15 +106,18 @@ def tier_based_product(product_loaded, product_ean_conversion, missions_players)
     plt.ylabel('Customers')
     plt.title('Count of Y grouped by X')
     plt.show()
-    return product_mission_result
+
+    return product_mission_merge
 
 
 def feature_engineering(registry_game):
 
     # Feature engineering
     # create age groups
-    bins = [0, 18, 30, 40, 50, 60, 100]
-    labels = ['0-18', '19-30', '31-40', '41-50', '51-60', '61+']
+    bins = [-1, 2, 6, 8, 10, int(
+        max(registry_game.ETA_MM_BambinoTODAY.to_list()))]
+
+    labels = ['0-2', '3-6', '7-8', '9-10', '10+']
     registry_game['age_group'] = pd.cut(
         registry_game['ETA_MM_BambinoTODAY'], bins=bins, labels=labels)
 
@@ -126,13 +125,37 @@ def feature_engineering(registry_game):
         'id_player'].count()
     print(registry_game_result)
     registry_game_result.plot(kind='bar')
-    plt.xlabel('TIER')
-    plt.ylabel('Customers')
-    plt.title('Count of Y grouped by X')
+    plt.xlabel('Range of Age')
+    plt.ylabel('Number of Child')
+    plt.title('Children of Different Age Group')
     plt.show()
 
     # view the data
     print(registry_game_result.head())
+
+
+def active_age_group(registry_game, activeUsers_df):
+    bins = [-1, 2, 6, 8, 10, int(
+        max(registry_game.ETA_MM_BambinoTODAY.to_list()))]
+
+    labels = ['0-2', '3-6', '7-8', '9-10', '10+']
+    registry_game['age_group'] = pd.cut(
+        registry_game['ETA_MM_BambinoTODAY'], bins=bins, labels=labels)
+
+    # ---------------------------------------------------------------------------------------
+
+    activeUsers_df = activeUsers_df[activeUsers_df['flag'] == 1]
+    df = pd.merge(registry_game, activeUsers_df[[
+                  'id_player']], how='inner', on='id_player')
+
+    registry_game_result = df.groupby('age_group')[
+        'id_player'].count()
+    print(registry_game_result)
+    registry_game_result.plot(kind='bar')
+    plt.xlabel('Age of Year')
+    plt.ylabel('Number of Active Child')
+    plt.title('Children of Different Age Group')
+    plt.show()
 
 
 def active_users(missions_players, app_accesses):
@@ -203,9 +226,13 @@ def active_users(missions_players, app_accesses):
     mission_access_merge['flag'] = mission_access_merge['diff_date'].apply(
         lambda x: 0 if x > 30 else 1)
 
-    activeUsers = mission_access_merge
+    activeUsers_df = mission_access_merge
 
-    return activeUsers
+    return activeUsers_df
+
+
+def tier_active_age(product_mission, active_users_df):
+    print(product_mission.head())
 
 
 def award_details():
@@ -222,10 +249,12 @@ def main():
     registry_game = deal_with_garbage_data(registry_game)
     # detect_outliers(registry_game)
 
-    merge_df = tier_based_product(
+    product_mission = tier_based_product(
         product_loaded, product_ean_conversion, missions_players)
-    feature_engineering(registry_game)
-    active_users(missions_players, app_accesses)
+    # feature_engineering(registry_game)
+    active_users_df = active_users(missions_players, app_accesses)
+    # active_age_group(registry_game, active_users_df)
+    tier_active_age(product_mission, active_users_df)
 
 
 main()
