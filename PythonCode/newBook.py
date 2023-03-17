@@ -68,13 +68,8 @@ def deal_with_garbage_data(registry_game):
     registry_game = registry_game[~registry_game['DtaPresuntoParto'].isnull()]
     registry_game = registry_game[~registry_game['DtaPresuntoParto'].str.contains(
         '2023')]
-    registry_game['Reg_date_flag'] = registry_game['ETA_MM_BambinoREG'].apply(
-        lambda x: 0 if x < -8 else 1)
-
-    # registry_game['ETA_MM_BambinoREG'] = registry_game['ETA_MM_BambinoREG'].abs()
-    # registry_game['ETA_MM_BambinoTODAY'] = registry_game['ETA_MM_BambinoTODAY'].abs()
-    # registry_game = registry_game[~registry_game['DtaPresuntoParto'].str.contains(
-    #     '2023')].head()
+    # registry_game['Reg_date_flag'] = registry_game['ETA_MM_BambinoREG'].apply(
+    #     lambda x: 0 if x < -8 else 1)
 
     """
     registry_game['DtaRegUserData'] = pd.to_datetime(
@@ -86,7 +81,7 @@ def deal_with_garbage_data(registry_game):
     #     registry_game['DtaRegUserData'] - registry_game['DtaPresuntoParto']).dt.days // 30) + ((
     #         registry_game['DtaRegUserData'] - registry_game['DtaPresuntoParto']).dt.days % 30 > 0)
     """
-    registry_game = registry_game[registry_game['Reg_date_flag'] == 1]
+    # registry_game = registry_game[registry_game['Reg_date_flag'] == 1]
 
     return registry_game
 
@@ -99,6 +94,8 @@ def detect_outliers(registry_game):
     plt.xlabel('Variable')
     plt.ylabel('Age')
     plt.show()
+
+############### EDA #####################
 
 
 def tier_based_product(product_loaded, product_ean_conversion, missions_players):
@@ -318,20 +315,21 @@ def award_details(active_users_df, missions_players, product_loaded):
 def main():
 
     registry_game, product_loaded, product_ean_conversion, missions_players, app_accesses, awards_moms = load_data()
-    # check_missing_values(registry_game, product_loaded,
-    #                      product_ean_conversion, missions_players, app_accesses, awards_moms)
-    # descriptive_stats(registry_game, product_loaded, product_ean_conversion, missions_players,app_accesses, awards_moms)
-    # detect_outliers(registry_game)
-    registry_game = deal_with_garbage_data(registry_game)
+    check_missing_values(registry_game, product_loaded,
+                         product_ean_conversion, missions_players, app_accesses, awards_moms)
+    descriptive_stats(registry_game, product_loaded, product_ean_conversion,
+                      missions_players, app_accesses, awards_moms)
+    detect_outliers(registry_game)
+    # registry_game = deal_with_garbage_data(registry_game)
     # detect_outliers(registry_game)
 
     # product_mission = tier_based_product(
     #     product_loaded, product_ean_conversion, missions_players)
     # # feature_engineering(registry_game)
-    active_users_df = active_users(missions_players, app_accesses)
-    # # active_age_group(registry_game, active_users_df)
-    # tier_active_age(product_mission, active_users_df)
-    award_details(active_users_df, missions_players, product_loaded)
+    # active_users_df = active_users(missions_players, app_accesses)
+    # # # active_age_group(registry_game, active_users_df)
+    # # tier_active_age(product_mission, active_users_df)
+    # award_details(active_users_df, missions_players, product_loaded)
 
 
 main()
