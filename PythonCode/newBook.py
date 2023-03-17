@@ -62,10 +62,32 @@ def descriptive_stats(registry_game, product_loaded, product_ean_conversion, mis
 
 
 def deal_with_garbage_data(registry_game):
-
+    """
+        Current Date 2022-09
+    """
     registry_game = registry_game[~registry_game['DtaPresuntoParto'].isnull()]
-    registry_game['ETA_MM_BambinoREG'] = registry_game['ETA_MM_BambinoREG'].abs()
-    registry_game['ETA_MM_BambinoTODAY'] = registry_game['ETA_MM_BambinoTODAY'].abs()
+    registry_game = registry_game[~registry_game['DtaPresuntoParto'].str.contains(
+        '2023')]
+    registry_game['Reg_date_flag'] = registry_game['ETA_MM_BambinoREG'].apply(
+        lambda x: 0 if x < -8 else 1)
+
+    # registry_game['ETA_MM_BambinoREG'] = registry_game['ETA_MM_BambinoREG'].abs()
+    # registry_game['ETA_MM_BambinoTODAY'] = registry_game['ETA_MM_BambinoTODAY'].abs()
+    # registry_game = registry_game[~registry_game['DtaPresuntoParto'].str.contains(
+    #     '2023')].head()
+
+    """
+    registry_game['DtaRegUserData'] = pd.to_datetime(
+        registry_game['DtaRegUserData'])
+    registry_game['DtaPresuntoParto'] = pd.to_datetime(
+        registry_game['DtaPresuntoParto'])
+
+    # registry_game['diff_date_registry'] = ((
+    #     registry_game['DtaRegUserData'] - registry_game['DtaPresuntoParto']).dt.days // 30) + ((
+    #         registry_game['DtaRegUserData'] - registry_game['DtaPresuntoParto']).dt.days % 30 > 0)
+    """
+    registry_game = registry_game[registry_game['Reg_date_flag'] == 1]
+
     return registry_game
 
 
@@ -160,8 +182,7 @@ def active_age_group(registry_game, activeUsers_df):
 
 def active_users(missions_players, app_accesses):
 
-    app_accesses['updated_at'] = pd.to_datetime(
-        app_accesses['updated_at'])
+    app_accesses['updated_at'] = pd.to_datetime(app_accesses['updated_at'])
 
     # extract the date part and save it to a new column 'date_only'
     app_accesses['updated_at'] = app_accesses['updated_at'].dt.date
@@ -175,6 +196,7 @@ def active_users(missions_players, app_accesses):
     """
     Assuming max date is a today date.
     """
+
     todayDate_access = max(app_accesses_dates['updated_at'].to_list())
 
     # ---------------------------------------------------------------------------------------
@@ -235,8 +257,62 @@ def tier_active_age(product_mission, active_users_df):
     print(product_mission.head())
 
 
-def award_details():
-    pass
+def award_details(active_users_df, missions_players, product_loaded):
+    user_mission = pd.merge(
+        active_users_df[['id_player']], missions_players[['id_player', 'points']], how='inner', on='id_player')
+
+    user_mission_group = user_mission.groupby(
+        ['id_player'])['points'].sum()
+    user_mission_group = user_mission_group.rename_axis(
+        'id_player').reset_index()
+
+    user_product = pd.merge(
+        active_users_df[['id_player']], product_loaded[['id_player', 'points']], how='inner', on='id_player')
+
+    user_product_group = user_product.groupby(
+        ['id_player'])['points'].sum()
+    user_product_group = user_product_group.rename_axis(
+        'id_player').reset_index()
+
+    user_mission_player = pd.merge(user_mission[['id_player', 'points']], user_product[[
+                                   'id_player', 'points']], how='outer', on='id_player')
+
+    user_mission_player.rename(columns={
+        'points_x': 'points_mission',
+        'points_y': 'points_product'
+    }, inplace=True)
+
+    user_mission_player['points'] = user_mission_player['points_mission'] + \
+        user_mission_player['points_product']
+
+    user_mission_player_group = user_mission_player.groupby(['id_player'])[
+        'points'].sum()
+    user_mission_player_group = user_mission_player_group.rename_axis(
+        'id_player').reset_index()
+
+    # define colors for each histogram
+    color1 = 'blue'
+    color2 = 'red'
+    color3 = 'green'
+
+    # Create a figure with three subplots
+    fig, axs = plt.subplots(1, 3, figsize=(10, 4))
+
+    # Create histograms for each of the groups
+    axs[0].hist(user_mission_group['points'], bins=10, color=color1)
+    axs[0].set_title('User Mission Group')
+    axs[1].hist(user_product_group['points'], bins=10, color=color2)
+    axs[1].set_title('User Product Group')
+    axs[2].hist(user_mission_player_group['points'], bins=10, color=color3)
+    axs[2].set_title('User Mission Player Group')
+
+    # Set the labels for the x and y axes and the title for the overall plot
+    fig.suptitle('Histograms of User Groups')
+    for ax in axs:
+        ax.set_xlabel('Points')
+        ax.set_ylabel('Frequency')
+
+    plt.show()
 
 
 def main():
@@ -249,12 +325,13 @@ def main():
     registry_game = deal_with_garbage_data(registry_game)
     # detect_outliers(registry_game)
 
-    product_mission = tier_based_product(
-        product_loaded, product_ean_conversion, missions_players)
-    # feature_engineering(registry_game)
+    # product_mission = tier_based_product(
+    #     product_loaded, product_ean_conversion, missions_players)
+    # # feature_engineering(registry_game)
     active_users_df = active_users(missions_players, app_accesses)
-    # active_age_group(registry_game, active_users_df)
-    tier_active_age(product_mission, active_users_df)
+    # # active_age_group(registry_game, active_users_df)
+    # tier_active_age(product_mission, active_users_df)
+    award_details(active_users_df, missions_players, product_loaded)
 
 
 main()

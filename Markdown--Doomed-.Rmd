@@ -1,0 +1,760 @@
+---
+title: "Final Report (Doomed)"
+author: "Muhammad Azam Aslam"
+date: "2023-03-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Introduction**
+
+The Datasets we are using in this report are provided to us from a company wich uses an app called "Pampers". This app is basically designed for parents with childern, these parents use this app to upload codes found on purchesed product for kids. Which in return give them points and later on these points can be redeemed to win prizes including gadgets and coupons.
+
+We will perform analysis on this data and figure out which customers are moving towards churing.
+
+## **About Datasets**
+
+Follwoing Datasets are provide to us:
+
+**anagrafica_game**
+**accessi_app**
+**prodotti_caricati**
+**conversione_ean_prodotto**
+**missioni_players**
+**premi_mamme**
+
+# **Preparing Analysis**
+In this section we are preparing our dataset for Exploatory Data Analysis (EDA) by performing pre processing / cleaning on the data
+
+## Libraries
+
+We will be importing all the libraries in this chunk of code for to be used in the code 
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(hrbrthemes)
+library(maps)
+library(mapdata)
+library(naniar)
+
+```
+
+## Loading Datasets
+
+In this chunk of code we are importing our Datasets
+
+```{r}
+# Importing Data Sets-------------------------------------------------------------------------
+accessi_app <- read.csv("DataSet/business_game_napoli_csv/accessi_app.csv", header = T, na.strings = c(" ",""))
+anagrafica <- read.csv("DataSet/business_game_napoli_csv/anagrafica.csv", header = T, na.strings = c(" ",""), stringsAsFactors = F)
+prodotti_caricati <- read.csv("DataSet/business_game_napoli_csv/prodotti_caricati.csv", header = T, na.strings = c(" ",""))
+missioni_players <- read.csv("DataSet/business_game_napoli_csv/missioni_players.csv", header = T, na.strings = c(" ",""))
+premi_mamme <- read.csv("DataSet/business_game_napoli_csv/premi_mamme.csv", header = T, na.strings = c(" ",""))
+conversione_ean_prodotto <- read.csv("DataSet/business_game_napoli_csv/conversione_ean_prodotto.csv", header = T, na.strings = c(" ",""))
+
+```
+
+## Renaming the Columns of Dataset
+
+We are doing this for better understanding during the analysis as we are English speaking students so converting the columns names in English, will give us ease of understanding through out the code.
+
+```{r}
+names(accessi_app)<-c("Player_ID","Source","Connection_Time_Date")
+names(anagrafica)<-c("Player_ID","REG_Date_Customer","D.O.B_Child","Child_Age_Today","Child_Age_at_Registration","Province","Province_Initials","Town","Region")
+names(prodotti_caricati)<-c("Player_ID","Mission_Details","Product_Points","Product_Upload_Date","EAN")
+names(missioni_players)<- c("Player_ID","Mission_Details","Unique_Mission_ID","Type","Sub_Type","Mission_Points","Mission_Date_Time")
+names(premi_mamme)<-c("Price_Request_Date","Player_ID","Prize_Name","Required_Points_for_Prize","Prize_Type","Prize_Format","Delivery_Mode")
+names(conversione_ean_prodotto)<-c("EAN","Product_Details","Product_Type","Category_Type","TIER")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Dataset Anagrafica Cleaning / Preprocessing
+
+In this section we will look closely at the Dataset named anagrafica
+
+```{r}
+# Plotting percentage of missing values in every column
+gg_miss_var(anagrafica, show_pct = TRUE)
+
+```
+
+As we can see we have huge number of missing values in column "Town" so we will simply remove the whole column as we have enough other data regarding location of customer for example: Region and Province. 
+
+Furthermore, we can see there are some missing values in province initials, and we also have province full name in the Dataset so we will also remove this column to save computational power. 
+
+Moreover, other columns including D.O.B_Child, Child_Age_Today, Region and Province also have less then 10% of missing values so we will simply drop these rows with missing values cause we have large enough values in our Dataset to perform analysis.
+```{r}
+# Removing the whole column TOWN and PROVINCE_INITIALS 
+anagrafica <- subset(anagrafica, select = -c(Town , Province_Initials ))
+
+# Removing missiing values in Dataset
+anagrafica <- na.omit(anagrafica)
+```
+
+Above mentioned actions performed lets check the structure of Dataset.
+```{r}
+# checking the structure of the data
+str(anagrafica)
+```
+There are 42842 rows and 7 columns in Dataset. As we can see REG_Date_Customer and D.O.B of child is in character datatype we will change it to date format. As we can see Child_Age_Today and Child_Age_at_Registration is in months not year also some negative values can be seen in Child_Age_at_Registration possibly these values represent a child is yet to be born, we will further check it using summary and apply above mentioned operations.
+
+```{r}
+# getting summarized information about the features of the data
+summary(anagrafica)
+
+```
+It can be further noted that even "Child_Age_Today" column have some negative values as well, we will keep these negative values and consider them as child is yet to be born and negative months represents time till baby is born. We will also change "Player_ID" data type to numeric.  
+
+```{r}
+anagrafica$Player_ID<-as.integer(anagrafica$Player_ID)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Dataset accessi_app Cleaning / Preprocessing
+
+In this section we will look closely at the Dataset named acessi_app
+
+```{r}
+# Plotting percentage of missing values in every column
+gg_miss_var(accessi_app, show_pct = TRUE)
+
+```
+
+The given Dataset dosen't have missing values which is a good sign lets check the structure of Dataset.
+```{r}
+# checking the structure of the data
+str(accessi_app)
+```
+As we can see Player_ID is in numeric datatype, however, in "anagrafica" Dataset it was integer type later we will use this column to merge Datasets therefore lets convert this datatype to integer. Moreover lets convert Source to factor type.  
+
+```{r}
+# Converting Data types
+accessi_app$Player_ID<-as.integer(accessi_app$Player_ID)
+accessi_app$Source<-as.factor(accessi_app$Source)
+
+```
+It can be further noted that even "Child_Age_Today" column have some negative values as well, we will keep these negative values and consider them as child is yet to be born and negative months represents time till baby is born.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Dataset prodotti_caricati Cleaning / Preprocessing
+
+In this section we will look closely at the Dataset named prodotti_caricati
+
+```{r}
+# Plotting percentage of missing values in every column
+gg_miss_var(prodotti_caricati, show_pct = TRUE)
+
+```
+
+As we can see we have huge number of missing values in column "Mission_Details". However this is an important column as it link the Dataset with "missioni_players" Dataset, But we can simply merge the Data set using "Player_ID" and "EAN". Therefore dropping this column is safe and it won't alter our analysis. 
+
+Further, there are very few percentage of missing values in "EAN" we will drop these as well since they are in very small number, also lets check the structure of Dataset.
+
+```{r}
+# checking the structure of the data
+str(prodotti_caricati)
+```
+
+Here, we will just convert data type of "EAN" to numeric for later merging of data.
+
+```{r}
+# Converting into DATE Data type
+prodotti_caricati$EAN<-as.numeric(prodotti_caricati$EAN)
+
+# Removing the whole columns and rows
+prodotti_caricati <- subset(prodotti_caricati, select = -c(Mission_Details))
+
+# Removing missiing values in Dataset
+prodotti_caricati <- na.omit(prodotti_caricati)
+
+```
+
+Data type converted, now lets look at the summary.
+
+```{r}
+# getting summarized information about the features of the data
+summary(prodotti_caricati)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Dataset conversione_ean_prodotto Cleaning / Preprocessing
+
+In this section we will look closely at the Dataset named conversione_ean_prodotto
+
+```{r}
+# Plotting percentage of missing values in every column
+gg_miss_var(conversione_ean_prodotto, show_pct = TRUE)
+
+```
+
+No missing values observed. Lets check structure of Dataset
+
+```{r}
+# checking the structure of the data
+str(conversione_ean_prodotto)
+```
+Lets check for unique values for all columns in this Dataset except "EAN".
+
+```{r}
+unique(conversione_ean_prodotto$Product_Details)
+unique(conversione_ean_prodotto$Product_Type)
+unique(conversione_ean_prodotto$Category_Type)
+unique(conversione_ean_prodotto$TIER)
+
+```
+Since "Category_Type" and "TIER" column have few unique values lets convert them to factor type. These can be useful in future.
+
+```{r}
+# getting summarized information about the features of the data
+summary(conversione_ean_prodotto)
+
+```
+Applying above mentioned actions
+
+```{r}
+# Converting Data Types
+conversione_ean_prodotto$TIER<-as.factor(conversione_ean_prodotto$TIER)
+conversione_ean_prodotto$Category_Type<-as.factor(conversione_ean_prodotto$Category_Type)
+
+```
+
+
+
+
+
+
+
+
+
+## Dataset missioni_player Cleaning / Preprocessing
+
+In this section we will look closely at the Dataset named missioni_player
+
+```{r}
+# Plotting percentage of missing values in every column
+gg_miss_var(missioni_players, show_pct = TRUE)
+
+```
+
+No missing values observed. Lets check structure of Dataset.
+
+```{r}
+# checking the structure of the data
+str(missioni_players)
+```
+Since Mission_Details are not required for merging data, lets remove it.
+
+```{r}
+missioni_players <- subset(missioni_players, select = -c(Mission_Details))
+
+```
+
+Furthermore, check unique values in "Type", "Sub_Type", and see if they should be converted to factor.
+
+```{r}
+# getting summarized information about the features of the data
+unique (missioni_players$Type)
+unique (missioni_players$Sub_Type)
+
+```
+There is only one category in "Type" also the metadata explain it as skip, therefore, we will drop this column as well also convert Sub_Type to factor 
+
+```{r}
+missioni_players <- subset(missioni_players, select = -c(Type))
+missioni_players$Sub_Type<-as.factor(missioni_players$Sub_Type)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Dataset premi_mamme Cleaning / Preprocessing
+
+In this section we will look closely at the Dataset named premi_mamme
+
+```{r}
+# Plotting percentage of missing values in every column
+gg_miss_var(premi_mamme, show_pct = TRUE)
+
+```
+
+
+No missing values observed. Lets check structure of Dataset.
+
+```{r}
+# checking the structure of the data
+str(premi_mamme)
+```
+Let's check for the unique values.
+
+```{r}
+unique(premi_mamme$Prize_Type)
+unique(premi_mamme$Prize_Format)
+unique(premi_mamme$Delivery_Mode)
+premi_mamme$Player_ID<-as.integer(premi_mamme$Player_ID)
+```
+Now, converting "Player_ID" into integer, and also "Prize_Type", "Prize_Format" and "Delivery_Mode" into factor type.
+
+```{r}
+premi_mamme$Prize_Type<-as.factor(premi_mamme$Prize_Type)
+premi_mamme$Prize_Format<-as.factor(premi_mamme$Prize_Format)
+premi_mamme$Delivery_Mode<-as.factor(premi_mamme$Delivery_Mode)
+premi_mamme$Player_ID<-as.integer(premi_mamme$Player_ID)
+
+```
+
+Let's look at the summary.
+
+```{r}
+# getting summarized information about the features of the data
+summary(premi_mamme)
+
+```
+
+
+
+
+
+# **Expltery Data Analysis (EDA)**
+
+We will merge the Dataset "anagrafica" and "missioni_players" to check region wise points gained for the mission by the customers.
+
+
+```{r}
+merged_1 <- merge(anagrafica, missioni_players, by = "Player_ID")
+
+head(merged_1, n=3)
+```
+
+After merging dataset lets move on to analysis
+
+```{r}
+
+# Aggregate total points by region and arrange them in ascending order
+sorted_merge_1 <- merged_1 %>%
+  group_by(Region) %>%
+  summarize(total_points = sum (Mission_Points)) %>%
+  arrange(total_points) 
+
+# Plot histogram of total points gained per region with sorted regions
+ggplot(sorted_merge_1, aes(x = reorder(Region, total_points), y = total_points, fill = Region)) +
+  geom_col() +
+  scale_fill_viridis_d() +
+  theme_minimal() +
+  labs(x = "Region", y = "Total Points Gained", title = "Total Points Gained by Region") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+
+```
+
+Here we can see, first 8 regions (Valle D'Aosta, Molise, Trentino-Alto Adige, Umbria, Basdilicata, Friuli-Venezia Giula,Ligura, Marche) are not very active in gaining points in games, therefore they are not very active players, these customers can move towards churning. Further move we can see (Sardegna and Abruzzo) are slightly higher but these are in danger of churning too. However, after these region we can safely assume rest of the regions are playing games and gaining points that means these are active users. We should only focus on first 10 regions.
+
+
+Now, we will merge "anagrafica" with "prodotti_caricati" and check province wise which customers have gained most points for uploading the products code they have purchased
+```{r}
+merged_2 <- merge(anagrafica, prodotti_caricati, by = "Player_ID")
+
+head(merged_1, n=3)
+```
+
+After merging Datasets we will perform our analysis
+
+```{r}
+
+# Aggregate total points by region and arrange them in ascending order
+sorted_merge_2 <- merged_2 %>%
+  group_by(Region) %>%
+  summarize(total_points = sum (Product_Points)) %>%
+  arrange(total_points) 
+
+# Plot histogram of total points gained per region with sorted regions
+ggplot(sorted_merge_2, aes(x = reorder(Region, total_points), y = total_points, fill = Region)) +
+  geom_col() +
+  scale_fill_viridis_d() +
+  theme_minimal() +
+  labs(x = "Region", y = "Total Points Gained", title = "Total Points Gained by Province") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+It is evident from above graph that following regions (Lombardia, Campania, Sicila, Puglia, Lazio, Veneto, Piemonte, Emilila-Romagna, Toscana, Calabria) are uploading more products then other other regions. Therefore customers from remaning region can move towards churning and more promotion and marketing strategies are required in these regions
+
+
+Now let's check which source customers are more engaged in activities.
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+# summarize the count of each source
+source_count <- accessi_app %>%
+  group_by(Source) %>%
+  summarise(count = n())
+
+# plot pie chart
+ggplot(source_count, aes(x="", y=count, fill=Source)) +
+  geom_bar(width = 1, stat = "identity") +
+  geom_text(aes(label = paste0(round((count/sum(count))*100),"%")), position = position_stack(vjust = 0.5)) +
+  coord_polar("y", start=0) +
+  labs(title = "Source", fill = "Source") +
+  scale_fill_manual(values = c("#FF7F50", "#87CEFA", "#FFD700", "#9ACD32", "#ADD8E6", "#FF69B4")) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+
+```
+
+This is a very good insight on the Dataset, as it tell most of the customer are using app and only few try to access is using website. One of the main reason for this is because it an app but these one percent customers can be shifted app as well to give these one percent ease of access.
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+
+# group by id_player and sum the points
+user_mission_group <- merged_1 %>% group_by(Player_ID) %>% summarise(points = sum(Mission_Points)) %>% rename(Player_ID = "Player_ID") %>% ungroup()
+print(head(user_mission_group))
+
+
+# group by id_player and sum the points
+user_product_group <- merged_2 %>% group_by(Player_ID) %>% summarise(points = sum(Product_Points)) %>% rename(Player_ID = "Player_ID") %>% ungroup()
+print(head(user_product_group))
+
+
+# add the two columns to create a new column named "points"
+user_mission_group$points <- user_mission_group$points + user_mission_group$points
+
+# group by id_player and sum the points
+user_mission_player_group <- user_mission_group %>% group_by(Player_ID) %>% summarise(points = sum(points)) %>% rename(Player_ID = "Player_ID") %>% ungroup()
+print(head(user_mission_player_group))
+
+# plot the three data frames on the same plot
+ggplot() + 
+  geom_line(data = user_mission_group, aes(x = Player_ID, y = points, color = "Dataframe 1")) +
+  geom_line(data = user_product_group, aes(x = Player_ID, y = points, color = "Dataframe 2")) +
+  geom_line(data = user_mission_player_group, aes(x = Player_ID, y = points, color = "Dataframe 3")) +
+  labs(title = "Two Dataframes on Same Graph", x = "Player_ID", y = "points", color = "Dataframes") +
+  theme(legend.position = "bottom")
+
+
+
+
+```
+
+
+
+# Predictions
+
+
+```{r}
+# Check distribution of variables
+ggplot(anagrafica, aes(x = Child_Age_Today)) + 
+  geom_histogram(binwidth = 1, color = "black", fill = "blue") + 
+  labs(title = "Distribution of Age_Child_Today")
+
+```
+
+
+```{r}
+ggplot(prodotti_caricati, aes(x = Product_Points)) + 
+  geom_histogram(binwidth = 5, color = "black", fill = "green") + 
+  labs(title = "Distribution of Points_Gained_Product")
+
+```
+
+
+
+
+```{r}
+# Create a new variable to calculate the difference between registration date and current date
+anagrafica <- anagrafica %>% mutate(Days_Since_Registration = as.numeric(difftime(Sys.Date(), REG_Date_Customer, units = "days")))
+
+```
+
+
+
+
+```{r}
+# Merging datasets --------------------------------------------------------------------------
+
+EAN_merged <- merge(prodotti_caricati, conversione_ean_prodotto, by = "EAN", all = TRUE)
+merged_df <- merge(accessi_app, anagrafica, by = "Player_ID", all = TRUE)
+merged_df <- merge(merged_df, missioni_players, by = "Player_ID", all = TRUE)
+merged_df <- merge(merged_df, premi_mamme, by = "Player_ID", all = TRUE)
+
+```
+
+
+```{r}
+
+library(dplyr)
+
+
+merged_df <- merged_df %>% select(-c ("Source" , "Sub_Type", "Prize_Name" ))
+
+EAN_merged <- EAN_merged %>% select(-c ("EAN"))
+
+
+```
+
+
+
+
+
+```{r}
+merged_df <- na.omit(merged_df)
+EAN_merged <- na.omit(EAN_merged)
+```
+
+
+```{r}
+
+merged_df <- merge(merged_df, anagrafica, by = "Player_ID", all = TRUE)
+
+```
+
+
+```{r}
+
+ # Define target variable
+ merged_df$Churn <- ifelse(is.na(merged_df$Price_Request_Date), 0, 1)
+ 
+```
+
+
+
+
+```{r}
+set.seed(123)
+n <- nrow(merged_df)
+trainIndex <- sample(seq_len(n), size = floor(0.7*n))
+training <- merged_df[trainIndex, ]
+testing <- merged_df[-trainIndex, ]
+
+
+```
+
+
+```{r}
+model <- glm(Churn ~ ., data = training, family = "binomial")
+```
+
+```{r}
+predictions <- predict(model, newdata = testing, type = "response")
+```
+
+```{r}
+# Define target variable
+merged_df$Churn <- ifelse(is.na(merged_df$Price_Request_Date), 0, 1)
+
+set.seed(123)
+n <- nrow(merged_df)
+trainIndex <- sample(seq_len(n), size = floor(0.7*n))
+training <- merged_df[trainIndex, ]
+testing <- merged_df[-trainIndex, ]
+
+model <- glm(Churn ~ ., data = training, family = "binomial")
+
+predictions <- predict(model, newdata = testing, type = "response")
+
+binary_predictions <- ifelse(predictions > 0.5, 1, 0)
+
+accuracy <- mean(binary_predictions == testing$Churn)
+precision <- sum(binary_predictions & testing$Churn) / sum(binary_predictions)
+recall <- sum(binary_predictions & testing$Churn) / sum(testing$Churn)
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+cat(paste("Accuracy:", accuracy, "\n"))
+cat(paste("Precision:", precision, "\n"))
+cat(paste("Recall:", recall, "\n"))
+cat(paste("F1 score:", f1_score, "\n"))
+
+library(randomForest)
+set.seed(123)
+rf_model <- randomForest(Churn ~ ., data = training)
+varImpPlot(rf_model) # plot feature importance
+```
+
+
+```{r}
+# EDA (Exploratory Data Analysis)
+
+# Visualizing distribution of churned and non-churned customers
+library(ggplot2)
+ggplot(merged_df, aes(x = factor(Churn))) + 
+  geom_bar(fill = "dodgerblue") + 
+  labs(title = "Churn distribution", x = "Churn", y = "Count")
+
+# Visualizing distribution of customer tenure
+ggplot(merged_df, aes(x = tenure)) + 
+  geom_histogram(fill = "dodgerblue") + 
+  labs(title = "Customer tenure distribution", x = "Tenure (months)", y = "Count")
+
+# Visualizing churn rate by payment method
+ggplot(merged_df, aes(x = PaymentMethod, fill = factor(Churn))) + 
+  geom_bar() + 
+  labs(title = "Churn rate by payment method", x = "Payment method", y = "Count") + 
+  scale_fill_manual(values = c("dodgerblue", "firebrick"))
+
+# Visualizing churn rate by internet service
+ggplot(merged_df, aes(x = InternetService, fill = factor(Churn))) + 
+  geom_bar() + 
+  labs(title = "Churn rate by internet service", x = "Internet service", y = "Count") + 
+  scale_fill_manual(values = c("dodgerblue", "firebrick"))
+
+# Visualizing churn rate by contract type
+ggplot(merged_df, aes(x = Contract, fill = factor(Churn))) + 
+  geom_bar() + 
+  labs(title = "Churn rate by contract type", x = "Contract type", y = "Count") + 
+  scale_fill_manual(values = c("dodgerblue", "firebrick"))
+
+# Visualizing monthly charges by churn status
+ggplot(merged_df, aes(x = factor(Churn), y = MonthlyCharges, fill = factor(Churn))) + 
+  geom_boxplot() + 
+  labs(title = "Monthly charges by churn status", x = "Churn",
+       y = "Monthly charges") + 
+  scale_fill_manual(values = c("dodgerblue", "firebrick"))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# library(caret)
+# 
+# # Define target variable
+# merged_df$Churn <- ifelse(is.na(merged_df$Price_Request_Date), 0, 1)
+# 
+# # Split data into training and testing sets
+# set.seed(123)
+# trainIndex <- createDataPartition(merged_df$Churn, p = 0.7, list = FALSE)
+# training <- merged_df[trainIndex, ]
+# testing <- merged_df[-trainIndex, ]
+# 
+# # Train the logistic regression model
+# model <- train(Churn ~ ., data = training, method = "glm", family = "binomial")
+# 
+# # Evaluate the model's performance
+# predictions <- predict(model, newdata = testing)
+# confusionMatrix(predictions, testing$Churn)
+# 
+# # Predictive model deployment
+# new_data <- data.frame(
+#   activity_count = 10,
+#   product_count = 5,
+#   points_earned = 100,
+#   rewards_claimed = 2,
+#   engagement_score = 2
+# )
+# new_prediction <- predict(model, newdata = new_data)
+
+
+```
+
